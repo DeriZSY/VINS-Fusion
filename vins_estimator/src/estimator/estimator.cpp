@@ -153,6 +153,7 @@ void Estimator::processMeasurements()
     while (1)
     {
         //printf("process measurments\n");
+        // feature = pair<double, featureFrame>
         pair<double, map<int, vector<pair<int, Eigen::Matrix<double, 7, 1> > > > > feature;
         vector<pair<double, Eigen::Vector3d>> accVector, gyrVector;
         if(!featureBuf.empty())
@@ -173,6 +174,7 @@ void Estimator::processMeasurements()
                 }
             }
             mBuf.lock();
+            // unlock mBuf, get IMU interval 
             if(USE_IMU)
                 getIMUInterval(prevTime, curTime, accVector, gyrVector);
 
@@ -337,6 +339,7 @@ void Estimator::processIMU(double t, double dt, const Vector3d &linear_accelerat
     gyr_0 = angular_velocity;
 }
 
+// input: single image (= featureFrame), header
 void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> &image, const double header)
 {
     ROS_DEBUG("new image coming ------------------------------------------");
@@ -382,15 +385,18 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
 
     if (solver_flag == INITIAL)
     {
+        // ensure enough number of frames are included in the initialization 
         if (frame_count == WINDOW_SIZE)
         {
             bool result = false;
             // if stereo, don't need to do special initialization
             if(!STEREO && ESTIMATE_EXTRINSIC != 2 && (header - initial_timestamp) > 0.1)
             {
+                // vision-only SFM + Visual-Inertia Alignment 
                result = initialStructure();
                initial_timestamp = header;
             }
+            // compute result after initialization
             if(STEREO || result)
             {
                 solver_flag = NON_LINEAR;
@@ -414,6 +420,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
                 updateLatestStates();
                 
             }
+            // if initialization failed, continue to slide the window
             else
                 slideWindow();
         }
@@ -433,6 +440,7 @@ void Estimator::processImage(const map<int, vector<pair<int, Eigen::Matrix<doubl
                 }
             }
             frame_count++;
+            // move sliding window ahead 
             int prev_frame = frame_count - 1;
             Ps[frame_count] = Ps[prev_frame];
             Vs[frame_count] = Vs[prev_frame];

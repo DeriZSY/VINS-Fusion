@@ -57,27 +57,33 @@ void FeatureTracker::setMask()
     mask = cv::Mat(row, col, CV_8UC1, cv::Scalar(255));
 
     // prefer to keep features that are tracked for long time
+
     vector<pair<int, pair<cv::Point2f, int>>> cnt_pts_id;
 
+    // cnt_pts_id : (tracked_times_count, (point, point_id))
     for (unsigned int i = 0; i < cur_pts.size(); i++)
         cnt_pts_id.push_back(make_pair(track_cnt[i], make_pair(cur_pts[i], ids[i])));
 
+    // sort point id according to tracked counts
     sort(cnt_pts_id.begin(), cnt_pts_id.end(), [](const pair<int, pair<cv::Point2f, int>> &a, const pair<int, pair<cv::Point2f, int>> &b)
          {
             return a.first > b.first;
          });
 
+    // clear all the vectors (information is already stored in cnt_pts_id)
     cur_pts.clear();
     ids.clear();
     track_cnt.clear();
 
     for (auto &it : cnt_pts_id)
     {
+        // if the comming point is not in an rejected area:
         if (mask.at<uchar>(it.second.first) == 255)
         {
             cur_pts.push_back(it.second.first);
             ids.push_back(it.second.second);
             track_cnt.push_back(it.first);
+            // set the proccessed point sournding circle to rejetion area 
             cv::circle(mask, it.second.first, MIN_DIST, 0, -1);
         }
     }
@@ -127,6 +133,10 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
         if(hasPrediction)
         {
             cur_pts = predict_pts;
+
+            // input: prev_im, curr_im, prev_pts, curr_pts
+            // param: level of image pyramid
+            // output: status, err
             cv::calcOpticalFlowPyrLK(prev_img, cur_img, prev_pts, cur_pts, status, err, cv::Size(21, 21), 1, 
             cv::TermCriteria(cv::TermCriteria::COUNT+cv::TermCriteria::EPS, 30, 0.01), cv::OPTFLOW_USE_INITIAL_FLOW);
             
@@ -160,9 +170,14 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
             }
         }
         
+        // reduce feature failed to get tracked or not inside image border 
         for (int i = 0; i < int(cur_pts.size()); i++)
             if (status[i] && !inBorder(cur_pts[i]))
                 status[i] = 0;
+
+        // ids : list of index
+        // track_cnt : list of track count
+        // prev/cur_pts: feature points 
         reduceVector(prev_pts, status);
         reduceVector(cur_pts, status);
         reduceVector(ids, status);
@@ -245,6 +260,9 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     if(SHOW_TRACK)
         drawTrack(cur_img, rightImg, ids, cur_pts, cur_right_pts, prevLeftPtsMap);
 
+
+
+    // Update current state to previous state 
     prev_img = cur_img;
     prev_pts = cur_pts;
     prev_un_pts = cur_un_pts;
@@ -256,6 +274,7 @@ map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> FeatureTracker::trackIm
     for(size_t i = 0; i < cur_pts.size(); i++)
         prevLeftPtsMap[ids[i]] = cur_pts[i];
 
+    // create featureFrame
     map<int, vector<pair<int, Eigen::Matrix<double, 7, 1>>>> featureFrame;
     for (size_t i = 0; i < ids.size(); i++)
     {
@@ -399,10 +418,15 @@ vector<cv::Point2f> FeatureTracker::undistortedPts(vector<cv::Point2f> &pts, cam
     return un_pts;
 }
 
+/*
+- Input:    index_list, point_list, cur_pts_map, prev_pts_map
+- Output:   <cv Point2f> pts_velocity     
+**/
 vector<cv::Point2f> FeatureTracker::ptsVelocity(vector<int> &ids, vector<cv::Point2f> &pts, 
                                             map<int, cv::Point2f> &cur_id_pts, map<int, cv::Point2f> &prev_id_pts)
 {
     vector<cv::Point2f> pts_velocity;
+    // update curr_id_pts
     cur_id_pts.clear();
     for (unsigned int i = 0; i < ids.size(); i++)
     {

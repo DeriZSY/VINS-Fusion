@@ -59,6 +59,7 @@ bool FeatureManager::addFeatureCheckParallax(int frame_count, const map<int, vec
     last_average_parallax = 0;
     new_feature_num = 0;
     long_track_num = 0;
+    // for all feature points in the image 
     for (auto &id_pts : image)
     {
         FeaturePerFrame f_per_fra(id_pts.second[0].second, td);
@@ -262,7 +263,7 @@ bool FeatureManager::initFramePoseByPnP(Eigen::Matrix3d &R, Eigen::Vector3d &P,
     return true;
 }
 
-
+// input: frame_count, Position Sliding Window, Rotation Sliding Window
 void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vector3d tic[], Matrix3d ric[])
 {
     if(!USE_IMU)
@@ -272,6 +273,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         {
             vector<cv::Point2f> pts2D;
             vector<cv::Point3f> pts3D;
+            // &iter_per_id : feature per id
             for (auto &it_per_id : feature)
             {
                 if (it_per_id.estimated_depth > 0)
@@ -310,9 +312,11 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
     }
     for (auto &it_per_id : feature)
     {
+        // if already init: skip 
         if (it_per_id.estimated_depth > 0)
             continue;
 
+        // for stereo camera
         if(STEREO && it_per_id.feature_per_frame[0].is_stereo)
         {
             int imu_i = it_per_id.start_frame;
@@ -352,6 +356,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             */
             continue;
         }
+        // for mono camera 
         else if(it_per_id.feature_per_frame.size() > 1)
         {
             int imu_i = it_per_id.start_frame;
@@ -388,6 +393,8 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             continue;
         }
         it_per_id.used_num = it_per_id.feature_per_frame.size();
+
+        // use more than four frames 
         if (it_per_id.used_num < 4)
             continue;
 
