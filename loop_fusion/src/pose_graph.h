@@ -48,8 +48,8 @@ class PoseGraph
 public:
 	PoseGraph();
 	~PoseGraph();
-	void registerPub(ros::NodeHandle &n);
-	void addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop);
+	void registerPub(ros::NodeHandle &n); // set publishers
+	void addKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop); // add keyframe
 	void loadKeyFrame(KeyFrame* cur_kf, bool flag_detect_loop);
 	void loadVocabulary(std::string voc_path);
 	KeyFrame* getKeyFrame(int index);
@@ -70,9 +70,9 @@ public:
 private:
 	int detectLoop(KeyFrame* keyframe, int frame_index);
 	void addKeyFrameIntoVoc(KeyFrame* keyframe);
-	void optimize4DoF();
-	void updatePath();
-	list<KeyFrame*> keyframelist;
+	void optimize4DoF(); // PGO
+	void updatePath(); 
+	list<KeyFrame*> keyframelist; // store keyframe 
 	std::mutex m_keyframelist;
 	std::mutex m_optimize_buf;
 	std::mutex m_path;

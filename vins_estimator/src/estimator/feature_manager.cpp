@@ -319,6 +319,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
         // for stereo camera
         if(STEREO && it_per_id.feature_per_frame[0].is_stereo)
         {
+            // Get left Pose
             int imu_i = it_per_id.start_frame;
             Eigen::Matrix<double, 3, 4> leftPose;
             Eigen::Vector3d t0 = Ps[imu_i] + Rs[imu_i] * tic[0];
@@ -327,6 +328,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             leftPose.rightCols<1>() = -R0.transpose() * t0;
             //cout << "left pose " << leftPose << endl;
 
+            // Get right pose
             Eigen::Matrix<double, 3, 4> rightPose;
             Eigen::Vector3d t1 = Ps[imu_i] + Rs[imu_i] * tic[1];
             Eigen::Matrix3d R1 = Rs[imu_i] * ric[1];
@@ -334,6 +336,7 @@ void FeatureManager::triangulate(int frameCnt, Vector3d Ps[], Matrix3d Rs[], Vec
             rightPose.rightCols<1>() = -R1.transpose() * t1;
             //cout << "right pose " << rightPose << endl;
 
+            // Get a set of corresponding feature points (left to right) 
             Eigen::Vector2d point0, point1;
             Eigen::Vector3d point3d;
             point0 = it_per_id.feature_per_frame[0].point.head(2);

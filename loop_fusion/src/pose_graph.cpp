@@ -430,6 +430,8 @@ void PoseGraph::optimize4DoF()
             printf("optimize pose graph \n");
             TicToc tmp_t;
             m_keyframelist.lock();
+
+            // Get keyframe of current index 
             KeyFrame* cur_kf = getKeyFrame(cur_index);
 
             int max_length = cur_index + 1;
@@ -440,6 +442,7 @@ void PoseGraph::optimize4DoF()
             double euler_array[max_length][3];
             double sequence_array[max_length];
 
+            // Create Ceres Problem 
             ceres::Problem problem;
             ceres::Solver::Options options;
             options.linear_solver_type = ceres::SPARSE_NORMAL_CHOLESKY;
@@ -455,6 +458,7 @@ void PoseGraph::optimize4DoF()
 
             list<KeyFrame*>::iterator it;
 
+            // iterate through all keyframes 
             int i = 0;
             for (it = keyframelist.begin(); it != keyframelist.end(); it++)
             {
@@ -487,6 +491,7 @@ void PoseGraph::optimize4DoF()
                     problem.SetParameterBlockConstant(t_array[i]);
                 }
 
+
                 //add edge
                 for (int j = 1; j < 5; j++)
                 {
@@ -506,7 +511,6 @@ void PoseGraph::optimize4DoF()
                 }
 
                 //add loop edge
-                
                 if((*it)->has_loop)
                 {
                     assert((*it)->loop_index >= first_looped_index);

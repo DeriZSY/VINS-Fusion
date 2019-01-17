@@ -938,21 +938,33 @@ void Estimator::optimization()
     TicToc t_whole, t_prepare;
     vector2double();
 
+    // create Ceres optimization problem 
     ceres::Problem problem;
     ceres::LossFunction *loss_function;
     //loss_function = NULL;
+
+    // Use huber kernel 
     loss_function = new ceres::HuberLoss(1.0);
     //loss_function = new ceres::CauchyLoss(1.0 / FOCAL_LENGTH);
     //ceres::LossFunction* loss_function = new ceres::HuberLoss(1.0);
+
+
+
+    // Add parameter block for pose 
     for (int i = 0; i < frame_count + 1; i++)
     {
         ceres::LocalParameterization *local_parameterization = new PoseLocalParameterization();
+        // AddParameterBlock: value, size, parametrization 
         problem.AddParameterBlock(para_Pose[i], SIZE_POSE, local_parameterization);
+
+        // if use IMU: add IMU value of each frame 
         if(USE_IMU)
             problem.AddParameterBlock(para_SpeedBias[i], SIZE_SPEEDBIAS);
     }
+    // 
     if(!USE_IMU)
         problem.SetParameterBlockConstant(para_Pose[0]);
+
 
     for (int i = 0; i < NUM_OF_CAM; i++)
     {
@@ -969,6 +981,7 @@ void Estimator::optimization()
             problem.SetParameterBlockConstant(para_Ex_Pose[i]);
         }
     }
+
     problem.AddParameterBlock(para_Td[0], 1);
 
     if (!ESTIMATE_TD || Vs[0].norm() < 0.2)
@@ -981,6 +994,7 @@ void Estimator::optimization()
         problem.AddResidualBlock(marginalization_factor, NULL,
                                  last_marginalization_parameter_blocks);
     }
+
     if(USE_IMU)
     {
         for (int i = 0; i < frame_count; i++)
@@ -993,6 +1007,8 @@ void Estimator::optimization()
         }
     }
 
+    
+    // Add Rresidual block for all frames 
     int f_m_cnt = 0;
     int feature_index = -1;
     for (auto &it_per_id : f_manager.feature)
@@ -1042,6 +1058,7 @@ void Estimator::optimization()
     ROS_DEBUG("visual measurement count: %d", f_m_cnt);
     //printf("prepare for ceres: %f \n", t_prepare.toc());
 
+    // Solve for result 
     ceres::Solver::Options options;
 
     options.linear_solver_type = ceres::DENSE_SCHUR;
@@ -1051,17 +1068,20 @@ void Estimator::optimization()
     //options.use_explicit_schur_complement = true;
     //options.minimizer_progress_to_stdout = true;
     //options.use_nonmonotonic_steps = true;
+
+    // give less time for margin old 
     if (marginalization_flag == MARGIN_OLD)
         options.max_solver_time_in_seconds = SOLVER_TIME * 4.0 / 5.0;
     else
         options.max_solver_time_in_seconds = SOLVER_TIME;
     TicToc t_solver;
     ceres::Solver::Summary summary;
-    ceres::Solve(options, &problem, &summary);
+    ceres::Solve(options, &problem, &summary); // Solve for the result 
     //cout << summary.BriefReport() << endl;
     ROS_DEBUG("Iterations : %d", static_cast<int>(summary.iterations.size()));
     //printf("solver costs: %f \n", t_solver.toc());
 
+    // convert 2D Matrix back to vector 
     double2vector();
     //printf("frame_count: %d \n", frame_count);
 
@@ -1069,6 +1089,7 @@ void Estimator::optimization()
         return;
 
     TicToc t_whole_marginalization;
+    // set marginalization inform, construct new marginalization inform  
     if (marginalization_flag == MARGIN_OLD)
     {
         MarginalizationInfo *marginalization_info = new MarginalizationInfo();
@@ -1091,6 +1112,7 @@ void Estimator::optimization()
             marginalization_info->addResidualBlockInfo(residual_block_info);
         }
 
+        // Marginalization for IMU 
         if(USE_IMU)
         {
             if (pre_integrations[1]->sum_dt < 10.0)
@@ -1260,14 +1282,22 @@ void Estimator::optimization()
 
 void Estimator::slideWindow()
 {
+    // sliding window is a FIFO structure, the newest frame comes to the tail
     TicToc t_margin;
+
+    // Margin Old 
     if (marginalization_flag == MARGIN_OLD)
     {
+        // check information of last frame in the sliding window 
         double t_0 = Headers[0];
         back_R0 = Rs[0];
         back_P0 = Ps[0];
+        // if window is full mariginalize; else, move window pointer foward 
         if (frame_count == WINDOW_SIZE)
         {
+            // swap elements in the window ahead 
+            // Window is made up of : Headers, Rs, Ps, pre_integration, dt_buf, linear_accelearation, angular_velocity_buf
+            //                        Vs, Bas, Bgs
             for (int i = 0; i < WINDOW_SIZE; i++)
             {
                 Headers[i] = Headers[i + 1];
@@ -1314,6 +1344,7 @@ void Estimator::slideWindow()
             slideWindowOld();
         }
     }
+    // margin new : eliminate lastest frame and push a new frame to the back
     else
     {
         if (frame_count == WINDOW_SIZE)
